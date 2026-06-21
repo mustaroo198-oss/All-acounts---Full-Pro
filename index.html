@@ -436,10 +436,9 @@
         </div>
         
         <div class="settings-list">
-            <!-- زر اللعبة الجديد المدمج باحترافية -->
-            <a href="https://mustaroo198-oss.github.io/Jamp-Game-Pro-3/" target="_blank" class="settings-item game-item">
-                <span>🎮    العب الآن:   </span>
-            </a>
+            <div class="settings-item game-item" onclick="switchPage('settingsPage', 'moreSitesPage')">
+                <span>🌐    مزيد من المواقع:    </span>
+            </div>
             <div class="settings-item" onclick="openPopup('chartPopup')">
                 <span>📊 عرض التحليل المالي (الرسم البياني)</span>
             </div>
@@ -464,6 +463,23 @@
             </div>
             <div class="settings-item danger-item" onclick="deleteCurrentAccount()">
                 <span>⚠️ حذف الحساب</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- الصفحة الجديدة المنفصلة الخاصة بمزيد من المواقع -->
+    <div id="moreSitesPage" class="page">
+        <div class="main-header">
+            <h2>مزيد من المواقع</h2>
+            <div class="back-arrow" onclick="switchPage('moreSitesPage', 'settingsPage')" title="العودة للإعدادات">⬅️</div>
+        </div>
+        <div class="settings-list">
+            <a href="https://mustaroo198-oss.github.io/Jamp-Game-Pro-3/" target="_blank" class="settings-item game-item">
+                <span>🎮    العب الآن (انتقل للعبة)    </span>
+            </a>
+            <div class="settings-item">
+            <a href="https://mustaroo198-oss.github.io/Restaurant-System/" target="_blank" class="settings-item settings-item "></a>
+                <span>🔗سيستم مطعم نسخه جاري تعديلها </span>
             </div>
         </div>
     </div>
@@ -519,7 +535,7 @@
 
         function openPopup(id) { 
             document.getElementById(id).classList.add('show'); 
-            if(id === 'chartPopup') loadDashboard(); // لتحديث الرسم البياني عند الفتح فوراً
+            if(id === 'chartPopup') loadDashboard();
         }
         function closePopup(id) { document.getElementById(id).classList.remove('show'); }
 
@@ -543,11 +559,11 @@
             if (type === 'income') {
                 incomeBox.classList.add('selected'); expenseBox.classList.remove('selected');
                 document.getElementById('typeIncome').checked = true;
-                categoryGroup.style.display = "none"; // إخفاء قائمة التصنيفات في الدخل
+                categoryGroup.style.display = "none";
             } else {
                 expenseBox.classList.add('selected'); incomeBox.classList.remove('selected');
                 document.getElementById('typeExpense').checked = true;
-                categoryGroup.style.display = "block"; // إظهار قائمة التصنيفات في الصرف
+                categoryGroup.style.display = "block";
             }
         }
 
@@ -615,7 +631,7 @@
             }
         }
 
-        function logout() { currentUser = ""; resetLoginSteps(); switchPage('settingsPage', 'loginPage'); switchPage('mainPage', 'loginPage'); }
+        function logout() { currentUser = ""; resetLoginSteps(); switchPage('settingsPage', 'loginPage'); switchPage('mainPage', 'loginPage'); switchPage('moreSitesPage', 'loginPage'); }
 
         function saveBudgetLimitPopup() {
             const val = document.getElementById('budgetLimitInput').value;
@@ -663,6 +679,167 @@
             });
         }
 
+        // دالة إضافة وحفظ العملية المالية بالكامل
+        function addRecord() {
+            const amount = document.getElementById('amountInput').value.trim();
+            const category = document.getElementById('categoryInput').value;
+            const day = document.getElementById('dayInput').value;
+            const date = document.getElementById('dateInput').value;
+
+            if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+                alert("برجاء إدخال مبلغ صحيح أكبر من الصفر!");
+                return;
+            }
+            if (!date) {
+                alert("برجاء اختيار التاريخ!");
+                return;
+            }
+
+            let allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
+
+            if (editModeIndex !== null) {
+                // وضع التعديل
+                let userRecords = allRecords.filter(r => r.username === currentUser);
+                let recordToUpdate = userRecords[editModeIndex];
+                
+                recordToUpdate.amount = amount;
+                recordToUpdate.type = selectedTransactionType;
+                recordToUpdate.category = selectedTransactionType === 'expense' ? category : 'دخل';
+                recordToUpdate.day = day;
+                recordToUpdate.date = date;
+
+                editModeIndex = null;
+                document.getElementById('submitBtn').innerText = "حفظ العملية الحالية";
+                document.getElementById('cancelEditBtn').style.display = "none";
+            } else {
+                // وضع الإضافة الجديد
+                const newRecord = {
+                    id: Date.now(),
+                    username: currentUser,
+                    amount: amount,
+                    type: selectedTransactionType,
+                    category: selectedTransactionType === 'expense' ? category : 'دخل',
+                    day: day,
+                    date: date
+                };
+                allRecords.push(newRecord);
+            }
+
+            localStorage.setItem('moneyRecords_multi', JSON.stringify(allRecords));
+            document.getElementById('amountInput').value = "";
+            loadDashboard();
+        }
+
+        // دالة مسح عملية مالية معينة
+        function deleteRecord(id) {
+            if (confirm("هل تريد حذف هذه العملية المالية نهائياً؟")) {
+                let allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
+                allRecords = allRecords.filter(r => r.id !== id);
+                localStorage.setItem('moneyRecords_multi', JSON.stringify(allRecords));
+                loadDashboard();
+            }
+        }
+
+        // دالة تفعيل وضع التعديل
+        function editRecord(indexInDisplayed) {
+            let allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
+            let userRecords = allRecords.filter(r => r.username === currentUser).reverse();
+            let record = userRecords[indexInDisplayed];
+
+            // البحث عن العنصر الأصلي في المصفوفة الكاملة باستخدام الـ ID
+            let originalIndex = allRecords.findIndex(r => r.id === record.id);
+            
+            // تحويل الـ Index الخاص بالتعديل بالنسبة للمصفوفة غير العكسية للمستخدم
+            let currentUserRecordsNormal = allRecords.filter(r => r.username === currentUser);
+            let targetIndexNormal = currentUserRecordsNormal.findIndex(r => r.id === record.id);
+
+            editModeIndex = targetIndexNormal;
+
+            document.getElementById('amountInput').value = record.amount;
+            document.getElementById('dayInput').value = record.day;
+            document.getElementById('dateInput').value = record.date;
+            selectType(record.type);
+            if (record.type === 'expense') {
+                document.getElementById('categoryInput').value = record.category;
+            }
+
+            document.getElementById('submitBtn').innerText = "تحديث العملية الحالية ✨";
+            document.getElementById('cancelEditBtn').style.display = "block";
+        }
+
+        function cancelEditMode() {
+            editModeIndex = null;
+            document.getElementById('amountInput').value = "";
+            document.getElementById('submitBtn').innerText = "حفظ العملية الحالية";
+            document.getElementById('cancelEditBtn').style.display = "none";
+        }
+
+        // دالة تصدير البيانات إلى كود Excel (CSV)
+        function exportToCSV() {
+            let allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
+            let userRecords = allRecords.filter(r => r.username === currentUser);
+            if (userRecords.length === 0) { alert("لا توجد بيانات لتصديرها!"); return; }
+
+            let csvContent = "\uFEFFالتاريخ,اليوم,النوع,الفئة,المبلغ\n";
+            userRecords.forEach(r => {
+                let typeName = r.type === 'income' ? 'دخل' : 'صرف';
+                csvContent += `${r.date},${r.day},${typeName},${r.category},${r.amount}\n`;
+            });
+
+            let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            let url = URL.createObjectURL(blob);
+            let link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `تقرير_${currentUser}_المالي.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // دالة حفظ نسخة احتياطية
+        function exportBackupData() {
+            let allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
+            let userRecords = allRecords.filter(r => r.username === currentUser);
+            let limit = localStorage.getItem(`budgetLimit_${currentUser}`) || "";
+            
+            let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ records: userRecords, budgetLimit: limit }));
+            let downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `نسخة_احتياطية_${currentUser}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.removeChild(downloadAnchor);
+        }
+
+        // دالة استرجاع نسخة احتياطية
+        function importBackupData(event) {
+            let input = event.target;
+            let reader = new FileReader();
+            reader.onload = function(){
+                try {
+                    let importedData = JSON.parse(reader.result);
+                    if(importedData.records) {
+                        let allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
+                        // حذف السجلات الحالية للمستخدم لتجنب التكرار
+                        allRecords = allRecords.filter(r => r.username !== currentUser);
+                        // إضافة السجلات الجديدة بعد ربطها بالمستخدم الحالي
+                        importedData.records.forEach(r => { r.username = currentUser; if(!r.id) r.id = Date.now() + Math.random(); allRecords.push(r); });
+                        localStorage.setItem('moneyRecords_multi', JSON.stringify(allRecords));
+                        
+                        if(importedData.budgetLimit) {
+                            localStorage.setItem(`budgetLimit_${currentUser}`, importedData.budgetLimit);
+                            document.getElementById('budgetLimitInput').value = importedData.budgetLimit;
+                        }
+                        alert("تم استعادة النسخة الاحتياطية بنجاح!");
+                        loadDashboard();
+                    }
+                } catch (e) {
+                    alert("ملف النسخة الاحتياطية غير صالح!");
+                }
+            };
+            reader.readAsText(input.files[0]);
+        }
+
         function loadDashboard() {
             const allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
             const container = document.getElementById('historyContainer');
@@ -681,7 +858,6 @@
                 else { total -= parseFloat(r.amount); chartExpense += parseFloat(r.amount); }
             });
 
-            // معالجة تنبيه الميزانية الذكي
             const limit = parseFloat(localStorage.getItem(`budgetLimit_${currentUser}`));
             if (limit && limit > 0 && chartExpense >= (limit * 0.8)) {
                 alertBox.style.display = "block";
@@ -702,179 +878,41 @@
 
             let displayedRecords = [...userRecords].reverse();
             
-            displayedRecords.forEach((record) => {
+            // فلترة البحث والقائمة المنسدلة
+            if(filterValue !== 'all') {
+                displayedRecords = displayedRecords.filter(r => r.type === filterValue);
+            }
+            if(searchText) {
+                displayedRecords = displayedRecords.filter(r => r.amount.toString().includes(searchText) || r.day.toLowerCase().includes(searchText));
+            }
+
+            if(displayedRecords.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:14px;">لا توجد سجلات مالية متطابقة الحجم 📋</div>`;
+                return;
+            }
+
+            displayedRecords.forEach((record, index) => {
                 const isIncome = record.type !== 'expense';
-                const originalIndex = allRecords.indexOf(record);
-                
-                if (filterValue === 'income' && !isIncome) return;
-                if (filterValue === 'expense' && isIncome) return;
-
-                if (searchText && !(
-                    record.amount.toString().includes(searchText) || 
-                    record.day.toLowerCase().includes(searchText) || 
-                    (record.category && record.category.includes(searchText))
-                )) return;
-
-                const item = document.createElement('div');
-                item.className = `record-item ${isIncome ? 'income-item' : 'expense-item'}`;
-                
-                item.innerHTML = `
-                    <div class="record-info">
-                        <div>
-                            ${isIncome ? '🟢 دخل' : '🔴 صرف'}
-                            ${!isIncome && record.category ? `<span class="record-category-badge">${record.category}</span>` : ''}
+                const itemHtml = `
+                    <div class="record-item ${isIncome ? 'income-item' : 'expense-item'}">
+                        <div class="record-info">
+                            <div>
+                                <span class="record-category-badge">${record.category}</span>
+                                <b>${record.day}</b>
+                            </div>
+                            <span class="record-date">${record.date}</span>
                         </div>
-                        <div class="record-date">${record.day}، ${record.date}</div>
-                    </div>
-                    <div class="record-amount ${isIncome ? 'income-amount' : 'expense-amount'}">
-                        <span>${isIncome ? '+' : '-'}${record.amount} EGP</span>
-                        <div class="action-btns">
-                            <button class="icon-btn" onclick="enterEditMode(${originalIndex})" title="تعديل">✏️</button>
-                            <button class="icon-btn" onclick="deleteRecord(${originalIndex})" title="حذف">🗑️</button>
+                        <div class="record-amount ${isIncome ? 'income-amount' : 'expense-amount'}">
+                            <span>${isIncome ? '+' : '-'}${record.amount} EGP</span>
+                            <div class="action-btns">
+                                <button class="icon-btn" onclick="editRecord(${index})" title="تعديل">✏️</button>
+                                <button class="icon-btn" onclick="deleteRecord(${record.id})" title="حذف">❌</button>
+                            </div>
                         </div>
                     </div>
                 `;
-                container.appendChild(item);
+                container.innerHTML += itemHtml;
             });
-        }
-
-        function addRecord() {
-            const amount = document.getElementById('amountInput').value;
-            const day = document.getElementById('dayInput').value;
-            const date = document.getElementById('dateInput').value;
-            const category = selectedTransactionType === 'expense' ? document.getElementById('categoryInput').value : '';
-
-            if (!amount || amount <= 0) { alert("من فضلك أدخل مبلغاً صحيحاً!"); return; }
-
-            let allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
-
-            if (editModeIndex !== null) {
-                allRecords[editModeIndex] = { username: currentUser, amount, day, date, type: selectedTransactionType, category };
-                cancelEditMode();
-            } else {
-                allRecords.push({ username: currentUser, amount, day, date, type: selectedTransactionType, category });
-            }
-
-            localStorage.setItem('moneyRecords_multi', JSON.stringify(allRecords));
-            loadDashboard();
-            document.getElementById('amountInput').value = "";
-        }
-
-        function enterEditMode(index) {
-            let allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
-            const record = allRecords[index];
-            editModeIndex = index;
-            
-            document.getElementById('amountInput').value = record.amount;
-            document.getElementById('dayInput').value = record.day;
-            document.getElementById('dateInput').value = record.date;
-            selectType(record.type);
-            if (record.type === 'expense' && record.category) {
-                document.getElementById('categoryInput').value = record.category;
-            }
-
-            document.getElementById('submitBtn').innerText = "تحديث العملية 💾";
-            document.getElementById('cancelEditBtn').style.display = "block";
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function cancelEditMode() {
-            editModeIndex = null;
-            document.getElementById('amountInput').value = "";
-            document.getElementById('submitBtn').innerText = "حفظ العملية الحالية";
-            document.getElementById('cancelEditBtn').style.display = "none";
-        }
-
-        function deleteRecord(index) {
-            if (confirm("هل تريد حذف هذه العملية المالية نهائياً؟")) {
-                let allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
-                allRecords.splice(index, 1);
-                localStorage.setItem('moneyRecords_multi', JSON.stringify(allRecords));
-                loadDashboard();
-                cancelEditMode();
-            }
-        }
-
-        function exportToCSV() {
-            const allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
-            const userRecords = allRecords.filter(r => r.username === currentUser);
-            if (userRecords.length === 0) { alert("لا توجد بيانات لتصديرها!"); return; }
-
-            let csvContent = "\uFEFF"; 
-            csvContent += "نوع العملية,المبلغ (EGP),الفئة,اليوم,التاريخ\n";
-
-            userRecords.forEach(r => {
-                const typeText = r.type === 'income' ? 'دخل' : 'صرف';
-                const catText = r.category || '---';
-                csvContent += `${typeText},${r.amount},${catText},${r.day},${r.date}\n`;
-            });
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.setAttribute("download", `تقرير_مالي_${currentUser}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        function exportBackupData() {
-            const allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
-            const userRecords = allRecords.filter(r => r.username === currentUser);
-            const limit = localStorage.getItem(`budgetLimit_${currentUser}`) || "";
-            
-            const backupObj = {
-                version: "2026.1",
-                username: currentUser,
-                records: userRecords,
-                budgetLimit: limit
-            };
-
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupObj));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", `نسخة_احتياطية_${currentUser}.json`);
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.removeChild(downloadAnchor);
-        }
-
-        function importBackupData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    if (!importedData.records || !Array.isArray(importedData.records)) {
-                        alert("ملف النسخة الاحتياطية غير صالح!");
-                        return;
-                    }
-
-                    if (confirm(`هل تريد دمج ${importedData.records.length} عملية مالية في حسابك الحالي؟`)) {
-                        let allRecords = JSON.parse(localStorage.getItem('moneyRecords_multi')) || [];
-                        
-                        importedData.records.forEach(importedRec => {
-                            importedRec.username = currentUser; 
-                            allRecords.push(importedRec);
-                        });
-
-                        localStorage.setItem('moneyRecords_multi', JSON.stringify(allRecords));
-                        
-                        if(importedData.budgetLimit) {
-                            localStorage.setItem(`budgetLimit_${currentUser}`, importedData.budgetLimit);
-                            document.getElementById('budgetLimitInput').value = importedData.budgetLimit;
-                        }
-
-                        alert("تم استيراد البيانات بنجاح وبدء تشغيل اللوحة.");
-                        loadDashboard();
-                    }
-                } catch (err) {
-                    alert("حدث خطأ أثناء قراءة الملف، تأكد من أنه ملف JSON صحيح.");
-                }
-            };
-            reader.readAsText(file);
         }
     </script>
 </body>
